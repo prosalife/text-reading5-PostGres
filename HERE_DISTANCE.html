@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <title>Distance Matrix Service</title>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=default"></script>
+    <script src="https://maps.googleapis.com/maps/api/js?key=qqqqqqqqqqqqqq&callback=initMap&libraries=&v=weekly" defer></script>
+
+    <script src="https://code.jquery.com/jquery-3.5.1.js" integrity="sha256-QWo7LDvxbWT2tbbQ97B53yJnYU3WhH/C8ycbRAkjPDc=" crossorigin="anonymous"></script>
+    <script type="text/javascript" src="https://js.api.here.com/v3/3.1/mapsjs-core.js"></script>
+    <script type="text/javascript" src="https://js.api.here.com/v3/3.1/mapsjs-service.js"></script>
+    <script type="text/javascript" src="https://js.api.here.com/v3/3.1/mapsjs-ui.js"></script>
+    <script type="text/javascript" src="https://js.api.here.com/v3/3.1/mapsjs-mapevents.js"></script>
+
+    <link rel="stylesheet" href="css/style.css">
+
+    <script>
+        // расчет расстояний между остановками используя HERE
+        const source_file_json = 'itog.json'; // исходные данные для расчета дистанций
+        const distance_json = 'obj_prop.json'; // результат рассчета дистанций
+        async function initMap() {
+            let iterations = 0;
+            let obj = {};
+            obj_global = {};
+            let ii = 0;
+            let obj_geojson = {
+                "name": "NewFeatureType",
+                "type": "FeatureCollection",
+                "features": null
+            };
+            let obj_prop = {
+                "properties": []
+            };
+
+            var platform = new H.service.Platform({
+                apikey: 'qqqqqqqqqqqqqqqqqqqqqqqqqq'
+            });
+
+            fetch(source_file_json).then(function(response) { // чтение json
+                return response.json();
+            }).then(function(obj) { // успешное чтение json
+
+                f_stations(iterations, obj);
+
+            }); // конец fetch
+
+            async function f_stations(i, obj) { //определение функции 
+
+                if (i > obj.features.length - 2) { // выход на предпоследней записи
+
+                    console.log("obj_prop ");
+                    console.log(obj_prop);
+                    $.ajax({
+                        url: 'data_0.php',
+                        type: 'POST',
+                        data: {
+                            myJson: JSON.stringify(obj_prop),
+                            NameOfFile: distance_json
+                        }
+                    });
+                    console.log("Конец  расчетаaaaa");
+
+                    return;
+                }
+                if (obj.features[i + 1].properties.root_id == obj.features[i].properties.root_id) {
+                    begin_r = obj.features[i].latitude + ',' + obj.features[i].longitude;
+                    end_r = obj.features[i + 1].latitude + ',' + obj.features[i + 1].longitude;
+                    var router = platform.getRoutingService(null, 8),
+                        routeRequestParams = {
+                            routingMode: 'fast',
+                            transportMode: 'car',
+                            origin: begin_r, // 
+                            destination: end_r, //
+                            return: 'polyline,turnByTurnActions,actions,instructions,travelSummary'
+                        };
+
+                    router.calculateRoute(
+                        routeRequestParams,
+                        onSuccess,
+                        onError
+                    );
+
+                    function onSuccess(result) {
+                        // console.log("begin_r " + begin_r + " end_r " + end_r + " Distance:  " + result.response.route[0].summary.distance);
+                        //       var route = result.response;
+                        // obj[i].properties.Distance = result.response.route[0].summary.distance;
+                        obj_prop.properties.push({
+                            "root_id": obj.features[i].properties.root_id,
+                            "platform_id": obj.features[i].properties.platform_id,
+                            // "Distance": result.response.route[0].summary.distance
+                            "Distance": result.routes[0].sections[0].travelSummary.length
+
+                        });
+
+                        // obj_global = obj;
+                        console.log(" root_id: " + obj.features[i].properties.root_id + " platform_id: " + obj.features[i].properties.platform_id + " Distance: " + result.routes[0].sections[0].travelSummary.length);
+                        // console.log("i: " + i + "  " + obj[i].root_name + " Станция: " + obj[i].platform + " Distance: " + result.response.route[0].summary.distance);
+                        //     resolve();
+
+                        iterations++;
+                        f_stations(iterations, obj);
+                    } // конец if
+
+                    function onError(error) {
+                        console.log(' Маршрут не определен ' + error);
+                    }
+
+                } else {
+                    iterations++;
+                    f_stations(iterations, obj);
+                }
+
+            }; // конец f_stations
+
+
+
+
+
+
+
+
+
+        } // конец функции initMap
+    </script>
+</head>
+
+<body>
+    <div id="output-forward">
+        <strong>Расстояния между остановками forward</strong> <br>
+    </div>
+
+    <div id="output-backward">
+        <strong>Расстояния между остановками backward</strong> <br>
+    </div>
+
+    <div id="map"></div>
+</body>
+
+</html>
